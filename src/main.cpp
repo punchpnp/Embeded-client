@@ -22,9 +22,17 @@ const int serverPort = 80;
 
 WiFiClient TCPclient;
 
+// Ultrasonic sensor pins
+const int trigPin = 13;   // Trigger pin
+const int echoPin = 12;  // Echo pin
+
+
 void setup()
 {
   Serial.begin(115200);
+  // Set up ultrasonic sensor pins
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
 
   // Connect to Wi-Fi
   WiFi.begin(ssid, password);
@@ -54,6 +62,40 @@ void setup()
 void loop()
 {
   Blynk.run();
+
+  // Measure distance using ultrasonic sensor
+  long duration;
+  float distance;
+
+  // Send a 10-microsecond pulse to Trig
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  // Read the Echo pin
+  duration = pulseIn(echoPin, HIGH);
+
+  // Calculate distance in cm (sound speed = 343 m/s)
+  distance = (duration * 0.0343) / 2;
+
+  // Print the distance to the Serial Monitor
+  Serial.print("Distance: ");
+  Serial.print(distance);
+  Serial.println(" cm");
+
+  // Send the distance value to the server
+  if (TCPclient.connected()) {
+    TCPclient.print("Distance: ");
+    TCPclient.print(distance);
+    TCPclient.println(" cm");
+    Serial.println("Distance sent to server.");
+  } else {
+    Serial.println("Not connected to server.");
+  }
+
+  delay(1000); // Measure every second
 }
 
 BLYNK_WRITE(V3)
