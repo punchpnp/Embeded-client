@@ -87,9 +87,10 @@ void loop()
 
   // Send the distance value to the server
   if (TCPclient.connected()) {
-    TCPclient.print("Distance: ");
+    // TCPclient.print("Distance: ");
     TCPclient.print(distance);
-    TCPclient.println(" cm");
+    // TCPclient.println(" cm");
+    TCPclient.print("\n");
     Serial.println("Distance sent to server.");
   } else {
     Serial.println("Not connected to server.");
