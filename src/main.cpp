@@ -12,24 +12,25 @@
 #include <SPI.h>
 #include <Adafruit_GFX.h>
 
-
-const int soilHumidityPin = 33; // Define pin 34 for soil humidity sensor
-
 // Wi-Fi credentials
 const char *ssid = "punchpnp";
 const char *password = "0955967996";
-const char* serverAddress = "172.20.10.3"; // CHANGE TO ESP32#2'S IP ADDRESS
+
+// Server details
+const char *serverAddress = "172.20.10.3"; // CHANGE TO ESP32#2'S IP ADDRESS
 const int serverPort = 80;
 
 WiFiClient TCPclient;
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
 
   // Connect to Wi-Fi
   WiFi.begin(ssid, password);
   Serial.print("Connecting to WiFi...");
-  while (WiFi.status() != WL_CONNECTED) {
+  while (WiFi.status() != WL_CONNECTED)
+  {
     delay(1000);
     Serial.print("loading... ");
   }
@@ -40,41 +41,35 @@ void setup() {
   Blynk.begin(BLYNK_AUTH_TOKEN, ssid, password);
 
   // Connect to TCP server (ESP32 #2)
-  if (TCPclient.connect(serverAddress, serverPort)) {
+  if (TCPclient.connect(serverAddress, serverPort))
+  {
     Serial.println("Connected to TCP server");
-  } else {
+  }
+  else
+  {
     Serial.println("Failed to connect to TCP server");
   }
 }
 
-void loop() {
+void loop()
+{
   Blynk.run();
-
-  int soilHumidityValue = analogRead(soilHumidityPin); // Read the analog value from pin 34
-  float soilHumidityPercent = map(soilHumidityValue, 4095, 0, 100, 0); // Convert to percentage
-
-  Blynk.virtualWrite(V4, soilHumidityPercent); // Send soil humidity percentage to Blynk
-
-  Serial.print("Soil Humidity: ");
-  Serial.print(soilHumidityValue); // Print the raw soil humidity value to the serial monitor
-  Serial.print(" (");
-  Serial.print(100 - soilHumidityPercent); // Print the soil humidity percentage to the serial monitor
-  Serial.println("%)");
-
-  delay(2000); // Adjust the delay as needed
 }
 
-BLYNK_WRITE(V3) {
+BLYNK_WRITE(V3)
+{
   int pinValue = param.asInt();
-  if (pinValue == 1) {
-    TCPclient.write('1');
-    TCPclient.flush();
-    delay(500);
-    Serial.println("- Virtual button pressed, sent command: 1");
-  } else {
-    TCPclient.write('0');
-    TCPclient.flush();
-    delay(500);
-    Serial.println("- Virtual button released, sent command: 0");
+  if (pinValue == 1)
+  {
+    if (TCPclient.connected())
+    {
+      TCPclient.write('1'); // Send the command to the server
+      TCPclient.flush();
+      Serial.println("Sent command: 1");
+    }
+    else
+    {
+      Serial.println("Server not connected");
+    }
   }
 }
