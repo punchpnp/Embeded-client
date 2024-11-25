@@ -23,9 +23,8 @@ const int serverPort = 80;
 WiFiClient TCPclient;
 
 // Ultrasonic sensor pins
-const int trigPin = 13;   // Trigger pin
-const int echoPin = 12;  // Echo pin
-
+const int trigPin = 13; // Trigger pin
+const int echoPin = 12; // Echo pin
 
 void setup()
 {
@@ -59,67 +58,71 @@ void setup()
   }
 }
 
+bool ultrasonicEnabled = false; // ULtrasonic Function
+
 void loop()
 {
   Blynk.run();
 
-  // Measure distance using ultrasonic sensor
-  long duration;
-  float distance;
-
-  // Send a 10-microsecond pulse to Trig
-  digitalWrite(trigPin, LOW);
-  delayMicroseconds(2);
-  digitalWrite(trigPin, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(trigPin, LOW);
-
-  // Read the Echo pin
-  duration = pulseIn(echoPin, HIGH);
-
-  // Calculate distance in cm (sound speed = 343 m/s)
-  distance = (duration * 0.0343) / 2;
-
-  // Print the distance to the Serial Monitor
-  Serial.print("Distance: ");
-  Serial.print(distance);
-  Serial.println(" cm");
-
-  // Send the distance value to the server
-  if (TCPclient.connected()) {
-    // TCPclient.print("Distance: ");
-    TCPclient.print(distance);
-    // TCPclient.println(" cm");
-    TCPclient.print("\n");
-    Serial.println("Distance sent to server.");
-
-    // Wait for the server response
-    if (TCPclient.available()) {
-      String response = TCPclient.readStringUntil('\n'); // New implementation: Reading server response
-      Serial.print("Response from server: "); // New implementation: Logging server response
-      Serial.println(response); // New implementation: Logging server response
-    }
-  } else {
-    Serial.println("Not connected to server.");
-  }
-
-  delay(1000); // Measure every second
-}
-
-BLYNK_WRITE(V3)
-{
-  int pinValue = param.asInt();
-  if (pinValue == 1)
+  if (ultrasonicEnabled)
   {
+    // Measure distance using ultrasonic sensor
+    long duration;
+    float distance;
+
+    // Send a 10-microsecond pulse to Trig
+    digitalWrite(trigPin, LOW);
+    delayMicroseconds(2);
+    digitalWrite(trigPin, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(trigPin, LOW);
+
+    // Read the Echo pin
+    duration = pulseIn(echoPin, HIGH);
+
+    // Calculate distance in cm (sound speed = 343 m/s)
+    distance = (duration * 0.0343) / 2;
+
+    // Print the distance to the Serial Monitor
+    Serial.print("Distance: ");
+    Serial.print(distance);
+    Serial.println(" cm");
+
+    // Send the distance value to the server
     if (TCPclient.connected())
     {
-      TCPclient.write('1'); // Send the command to the server
-      TCPclient.flush();
-      Serial.println("Sent command: 1");
+      // TCPclient.print("Distance: ");
+      TCPclient.print(distance);
+      // TCPclient.println(" cm");
+      TCPclient.print("\n");
+      Serial.println("Distance sent to server.");
+
+      // Wait for the server response
+      if (TCPclient.available())
+      {
+        String response = TCPclient.readStringUntil('\n'); 
+        Serial.print("Response from server: ");            
+        Serial.println(response);                          
+      }
     }
     else
     {
-      Serial.println("Server not connected");
+      Serial.println("Not connected to server.");
     }
+    delay(1000);
   }
+  else
+  {
+    delay(500); 
+  }
+}
+
+BLYNK_WRITE(V3) // Button for enable/disable ultrasonic
+{
+  int pinValue = param.asInt();
+  ultrasonicEnabled = (pinValue == 1); 
+  if (ultrasonicEnabled)
+    Serial.println("Ultrasonic function enabled.");
+  else
+    Serial.println("Ultrasonic function disabled.");
 }
