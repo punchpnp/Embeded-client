@@ -92,6 +92,13 @@ void loop()
     // TCPclient.println(" cm");
     TCPclient.print("\n");
     Serial.println("Distance sent to server.");
+
+    // Wait for the server response
+    if (TCPclient.available()) {
+      String response = TCPclient.readStringUntil('\n'); // New implementation: Reading server response
+      Serial.print("Response from server: "); // New implementation: Logging server response
+      Serial.println(response); // New implementation: Logging server response
+    }
   } else {
     Serial.println("Not connected to server.");
   }
