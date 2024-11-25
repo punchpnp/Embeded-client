@@ -47,6 +47,12 @@ void setup()
   // Initialize Blynk
   Blynk.begin(BLYNK_AUTH_TOKEN, ssid, password);
 
+  Blynk.begin(BLYNK_AUTH_TOKEN, ssid, password);
+  if (Blynk.connected())
+    Serial.println("Blynk connected!");
+  else
+    Serial.println("Blynk connection failed!");
+
   // Connect to TCP server (ESP32 #2)
   if (TCPclient.connect(serverAddress, serverPort))
   {
@@ -59,6 +65,7 @@ void setup()
 }
 
 bool ultrasonicEnabled = false; // ULtrasonic Function
+bool humidtempEnable = false;   // Humidity and Temperature Function
 
 void loop()
 {
@@ -125,4 +132,14 @@ BLYNK_WRITE(V3) // Button for enable/disable ultrasonic
     Serial.println("Ultrasonic function enabled.");
   else
     Serial.println("Ultrasonic function disabled.");
+}
+
+BLYNK_WRITE(V5) // Button for enable/disable Humid and Temperate
+{
+  int pinValue = param.asInt();
+  humidtempEnable = (pinValue == 1);
+  if (humidtempEnable)
+    Serial.println("Humidity and Temperate function enabled.");
+  else
+    Serial.println("Humidity and Temperate function disabled.");
 }
