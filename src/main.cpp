@@ -134,7 +134,7 @@ void soilMoist()
   Serial.println("%");
 
   Blynk.virtualWrite(V1, soilMoistValue);
-  handleFirebaseStoreData("Client/SoilMoist", soilMoistValue.toString());
+  handleFirebaseStoreData("Client/SoilMoist", String(soilMoistValue));
 
   if (TCPclient.connected())
   {
@@ -204,7 +204,7 @@ void Ultrasonic()
   Serial.print(distance);
   Serial.println(" cm");
 
-  handleFirebaseStoreData("Client/Ultrasonic", distance.toString());
+  handleFirebaseStoreData("Client/Ultrasonic", String(distance));
 
   if (TCPclient.connected())
   {
