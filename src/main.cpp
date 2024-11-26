@@ -13,11 +13,11 @@
 #include <Adafruit_GFX.h>
 
 // Wi-Fi credentials
-const char *ssid = "Jorpor.foto";
-const char *password = "88888888";
+const char *ssid = "punchpnp";
+const char *password = "0955967996";
 
 // Server details
-const char *serverAddress = "172.20.10.7"; // CHANGE TO ESP32#2'S IP ADDRESS
+const char *serverAddress = "172.20.10.3"; // CHANGE TO ESP32#2'S IP ADDRESS
 const int serverPort = 80;
 
 WiFiClient TCPclient;
@@ -64,16 +64,16 @@ void setup()
 
 bool ultrasonicEnabled = false; // ULtrasonic Function
 bool waterPumpEnabled = false;
-int soilMoistValue = 0;
+bool soilMoistEnabled = false;
 
 void soilMoist()
 {
-  soilMoistValue = (100.00 - ((analogRead(soilMoistPin) / 4095.00) * 100.00));
-  Blynk.virtualWrite(V1, soilMoistValue);
+  soilMoistEnabled = (100.00 - ((analogRead(soilMoistPin) / 4095.00) * 100.00));
+  Blynk.virtualWrite(V1, soilMoistEnabled);
 
   if (TCPclient.connected())
   {
-    if (soilMoistValue < 50)
+    if (soilMoistEnabled < 50)
     {
       TCPclient.print("water");
       TCPclient.print("\n");
@@ -163,19 +163,13 @@ void loop()
   soilMoist();
 
   if (!ultrasonicEnabled || !waterPumpEnabled)
-  {
     delay(500);
-  }
   else
   {
     if (ultrasonicEnabled)
-    {
       Ultrasonic();
-    }
     if (waterPumpEnabled)
-    {
       waterPump();
-    }
   }
 }
 
@@ -187,4 +181,14 @@ BLYNK_WRITE(V3) // Button for enable/disable ultrasonic
     Serial.println("Ultrasonic function enabled.");
   else
     Serial.println("Ultrasonic function disabled.");
+}
+
+BLYNK_WRITE(V6) // Button for enable/disable ultrasonic
+{
+  int pinValue = param.asInt();
+  soilMoistEnabled = (pinValue == 1); 
+  if (soilMoistEnabled)
+    Serial.println("Soilmoist function enabled.");
+  else
+    Serial.println("Soilmoist function disabled.");
 }
