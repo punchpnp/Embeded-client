@@ -28,6 +28,16 @@ const int echoPin = 12; // Echo pin
 const int soilMoistPin = 35;
 const int relayPin = 27;
 
+// Water pump variables
+unsigned long waterPumpStartTime = 0;        
+const unsigned long waterPumpDuration = 10000; 
+
+// Function enable/disable flags
+bool ultrasonicEnabled = false; 
+bool waterPumpEnabled = false;
+bool soilMoistEnabled = true;
+bool humidtempEnable = false; 
+
 void setup()
 {
   Serial.begin(115200);
@@ -59,23 +69,19 @@ void setup()
 
   // Connect to TCP server (ESP32 #2)
   if (TCPclient.connect(serverAddress, serverPort))
-  {
     Serial.println("Connected to TCP server");
-  }
   else
-  {
     Serial.println("Failed to connect to TCP server");
-  }
 }
-
-bool ultrasonicEnabled = false; // ULtrasonic Function
-bool waterPumpEnabled = false;
-bool soilMoistEnabled = false;
-bool humidtempEnable = false;   // Humidity and Temperature Function
 
 void soilMoist()
 {
   soilMoistEnabled = (100.00 - ((analogRead(soilMoistPin) / 4095.00) * 100.00));
+
+  Serial.print("Soil Moisture: ");
+  Serial.print(soilMoistEnabled);
+  Serial.println("%");
+
   Blynk.virtualWrite(V1, soilMoistEnabled);
 
   if (TCPclient.connected())
@@ -83,19 +89,20 @@ void soilMoist()
     if (soilMoistEnabled < 50)
     {
       TCPclient.print("water");
-      TCPclient.print("\n");
       Serial.println("\"water\" sent to server.");
     }
 
-    // Wait for the server response
     if (TCPclient.available())
     {
       String response = TCPclient.readStringUntil('\n');
-      Serial.print("Response from server: ");
-      if (response == "water")
+      Serial.println(response);
+
+      response.trim();
+      if (response == "openPump")
       {
         Serial.print("Response from server: ");
         Serial.println(response);
+        Serial.println("\n");
         waterPumpEnabled = true;
       }
     }
@@ -109,10 +116,20 @@ void soilMoist()
 
 void waterPump()
 {
-  Serial.println("WaterPump Start");
-  delay(2000);
-  Serial.println("WaterPump Strop");
-  waterPumpEnabled = false;
+  if (waterPumpStartTime == 0) // Start the pump if it's not already started
+  {
+    Serial.println("WaterPump Start");
+    digitalWrite(relayPin, HIGH);  // Turn on the water pump
+    waterPumpStartTime = millis(); 
+  }
+
+  if (millis() - waterPumpStartTime >= waterPumpDuration)
+  {
+    Serial.println("WaterPump Stop");
+    digitalWrite(relayPin, LOW); // Turn off the water pump
+    waterPumpEnabled = false;   
+    waterPumpStartTime = 0;     
+  }
 }
 
 void Ultrasonic()
@@ -121,34 +138,24 @@ void Ultrasonic()
   long duration;
   float distance;
 
-  // Send a 10-microsecond pulse to Trig
   digitalWrite(trigPin, LOW);
   delayMicroseconds(2);
   digitalWrite(trigPin, HIGH);
   delayMicroseconds(10);
   digitalWrite(trigPin, LOW);
 
-  // Read the Echo pin
   duration = pulseIn(echoPin, HIGH);
-
-  // Calculate distance in cm (sound speed = 343 m/s)
   distance = (duration * 0.0343) / 2;
 
-  // Print the distance to the Serial Monitor
   Serial.print("Distance: ");
   Serial.print(distance);
   Serial.println(" cm");
 
-  // Send the distance value to the server
   if (TCPclient.connected())
   {
-    // TCPclient.print("Distance: ");
     TCPclient.print(distance);
-    // TCPclient.println(" cm");
-    TCPclient.print("\n");
     Serial.println("Distance sent to server.");
 
-    // Wait for the server response
     if (TCPclient.available())
     {
       String response = TCPclient.readStringUntil('\n');
@@ -167,23 +174,19 @@ void loop()
 {
   Blynk.run();
 
-  soilMoist();
+  if (ultrasonicEnabled)
+    Ultrasonic();
+  if (soilMoistEnabled)
+    soilMoist();
+  if (waterPumpEnabled)
+    waterPump();
 
-  if (!ultrasonicEnabled || !waterPumpEnabled)
-    delay(500);
-  else
-  {
-    if (ultrasonicEnabled)
-      Ultrasonic();
-    if (waterPumpEnabled)
-      waterPump();
-  }
 }
 
 BLYNK_WRITE(V3) // Button for enable/disable ultrasonic
 {
   int pinValue = param.asInt();
-  ultrasonicEnabled = (pinValue == 1); 
+  ultrasonicEnabled = (pinValue == 1);
   if (ultrasonicEnabled)
     Serial.println("Ultrasonic function enabled.");
   else
@@ -203,7 +206,7 @@ BLYNK_WRITE(V5) // Button for enable/disable Humid and Temperate
 BLYNK_WRITE(V6) // Button for enable/disable ultrasonic
 {
   int pinValue = param.asInt();
-  soilMoistEnabled = (pinValue == 1); 
+  soilMoistEnabled = (pinValue == 1);
   if (soilMoistEnabled)
     Serial.println("Soilmoist function enabled.");
   else
