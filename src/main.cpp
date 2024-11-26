@@ -29,14 +29,15 @@ const int soilMoistPin = 35;
 const int relayPin = 27;
 
 // Water pump variables
-unsigned long waterPumpStartTime = 0;        
-const unsigned long waterPumpDuration = 10000; 
+unsigned long waterPumpStartTime = 0;
+const unsigned long waterPumpDuration = 10000;
 
 // Function enable/disable flags
-bool ultrasonicEnabled = false; 
+bool ultrasonicEnabled = false;
 bool waterPumpEnabled = false;
-bool soilMoistEnabled = true;
-bool humidtempEnable = false; 
+bool soilMoistEnabled = false;
+bool humidtempEnabled = false;
+bool lightSensorEnabled = true;
 
 void setup()
 {
@@ -119,16 +120,16 @@ void waterPump()
   if (waterPumpStartTime == 0) // Start the pump if it's not already started
   {
     Serial.println("WaterPump Start");
-    digitalWrite(relayPin, HIGH);  // Turn on the water pump
-    waterPumpStartTime = millis(); 
+    digitalWrite(relayPin, HIGH); // Turn on the water pump
+    waterPumpStartTime = millis();
   }
 
   if (millis() - waterPumpStartTime >= waterPumpDuration)
   {
     Serial.println("WaterPump Stop");
     digitalWrite(relayPin, LOW); // Turn off the water pump
-    waterPumpEnabled = false;   
-    waterPumpStartTime = 0;     
+    waterPumpEnabled = false;
+    waterPumpStartTime = 0;
   }
 }
 
@@ -159,6 +160,8 @@ void Ultrasonic()
     if (TCPclient.available())
     {
       String response = TCPclient.readStringUntil('\n');
+      response.trim();
+      
       Serial.print("Response from server: ");
       Serial.println(response);
     }
@@ -168,6 +171,24 @@ void Ultrasonic()
     Serial.println("Not connected to server.");
   }
   delay(1000);
+}
+
+void lightSensor()
+{
+  if (TCPclient.connected())
+  {
+    if (TCPclient.available())
+    {
+      String response = TCPclient.readStringUntil('\n');
+      response.trim();
+      Serial.print("Response Light Status from server: ");
+      Serial.println(response);
+    }
+  }
+  else
+  {
+    Serial.println("Not connected to server.");
+  }
 }
 
 void loop()
@@ -180,7 +201,8 @@ void loop()
     soilMoist();
   if (waterPumpEnabled)
     waterPump();
-
+  if (lightSensorEnabled)
+    lightSensor();
 }
 
 BLYNK_WRITE(V3) // Button for enable/disable ultrasonic
@@ -196,8 +218,8 @@ BLYNK_WRITE(V3) // Button for enable/disable ultrasonic
 BLYNK_WRITE(V5) // Button for enable/disable Humid and Temperate
 {
   int pinValue = param.asInt();
-  humidtempEnable = (pinValue == 1);
-  if (humidtempEnable)
+  humidtempEnabled = (pinValue == 1);
+  if (humidtempEnabled)
     Serial.println("Humidity and Temperate function enabled.");
   else
     Serial.println("Humidity and Temperate function disabled.");
