@@ -215,7 +215,7 @@ void Ultrasonic()
     {
       String response = TCPclient.readStringUntil('\n');
       response.trim();
-      
+
       Serial.print("Response from server: ");
       Serial.println(response);
     }
