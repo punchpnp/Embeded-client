@@ -1,6 +1,11 @@
+// BLYNK
 #define BLYNK_TEMPLATE_ID "TMPL6_45WajaT"
 #define BLYNK_TEMPLATE_NAME "Project"
 #define BLYNK_AUTH_TOKEN "qnQBhPFZ_9isQv_uPwe-Im3U--A2mEOp"
+
+// FIREBASE
+#define FIREBASE_API_KEY "AIzaSyDlku4rxvpDzrvbXsaa_PK__VbLUtF4GKY"
+#define FIREBASE_DATABASE_URL "https://embreddedproject-default-rtdb.asia-southeast1.firebasedatabase.app/"
 
 #include <Adafruit_Sensor.h>
 #include <DHT.h>
@@ -11,14 +16,22 @@
 #include "FS.h"
 #include <SPI.h>
 #include <Adafruit_GFX.h>
+#include <Firebase_ESP_Client.h>
+#include <addons/TokenHelper.h>
+#include <addons/RTDBHelper.h>
 
 // Wi-Fi credentials
 const char *ssid = "punchpnp";
 const char *password = "0955967996";
 
 // Server details
-const char *serverAddress = "172.20.10.3"; // CHANGE TO ESP32#2'S IP ADDRESS
+const char *serverAddress = "172.20.10.5"; // CHANGE TO ESP32#2'S IP ADDRESS
 const int serverPort = 80;
+
+bool FB_signupOK = false;
+FirebaseData fbdo;
+FirebaseAuth auth;
+FirebaseConfig config;
 
 WiFiClient TCPclient;
 
@@ -27,6 +40,9 @@ const int trigPin = 13; // Trigger pin
 const int echoPin = 12; // Echo pin
 const int soilMoistPin = 35;
 const int relayPin = 27;
+
+unsigned long previousMillis = 0;
+const unsigned long interval = 2000;
 
 // Water pump variables
 unsigned long waterPumpStartTime = 0;
@@ -68,6 +84,23 @@ void setup()
   else
     Serial.println("Blynk connection failed!");
 
+  // Initialize Firebase
+  config.api_key = FIREBASE_API_KEY;
+  config.database_url = FIREBASE_DATABASE_URL;
+  if (Firebase.signUp(&config, &auth, "", ""))
+  {
+    Serial.println("Firebase sign up OK!");
+    FB_signupOK = true;
+  }
+  else
+  {
+    Serial.printf("%s\n", config.signer.signupError.message.c_str());
+    Serial.println("Firebase sign up failed!");
+  }
+  config.token_status_callback = tokenStatusCallback;
+  Firebase.begin(&config, &auth);
+  Firebase.reconnectWiFi(true);
+
   // Connect to TCP server (ESP32 #2)
   if (TCPclient.connect(serverAddress, serverPort))
     Serial.println("Connected to TCP server");
@@ -75,15 +108,33 @@ void setup()
     Serial.println("Failed to connect to TCP server");
 }
 
+void handleFirebaseStoreData(String _path, String _data)
+{
+  if (Firebase.ready() && FB_signupOK)
+  {
+    if (Firebase.RTDB.setString(&fbdo, _path, _data))
+    {
+      Serial.println();
+      Serial.print(_data);
+      Serial.print(" - Successfully saved to: " + fbdo.dataPath());
+      Serial.println(" (" + fbdo.dataType() + ")");
+    }
+    else
+    {
+      Serial.println("FAILED: " + fbdo.errorReason());
+    }
+  }
+}
+
 void soilMoist()
 {
   int soilMoistValue = (100.00 - ((analogRead(soilMoistPin) / 4095.00) * 100.00));
-
   Serial.print("Soil Moisture: ");
   Serial.print(soilMoistValue);
   Serial.println("%");
 
   Blynk.virtualWrite(V1, soilMoistValue);
+  handleFirebaseStoreData("Client/SoilMoist", String(soilMoistValue));
 
   if (TCPclient.connected())
   {
@@ -112,7 +163,6 @@ void soilMoist()
   {
     Serial.println("Not connected to server.");
   }
-  delay(1000);
 }
 
 void waterPump()
@@ -122,6 +172,7 @@ void waterPump()
     Serial.println("WaterPump Start");
     digitalWrite(relayPin, HIGH); // Turn on the water pump
     waterPumpStartTime = millis();
+    handleFirebaseStoreData("Client/WaterPump", "on");
   }
 
   if (millis() - waterPumpStartTime >= waterPumpDuration)
@@ -130,6 +181,7 @@ void waterPump()
     digitalWrite(relayPin, LOW); // Turn off the water pump
     waterPumpEnabled = false;
     waterPumpStartTime = 0;
+    handleFirebaseStoreData("Client/WaterPump", "off");
   }
 }
 
@@ -152,6 +204,8 @@ void Ultrasonic()
   Serial.print(distance);
   Serial.println(" cm");
 
+  handleFirebaseStoreData("Client/Ultrasonic", String(distance));
+
   if (TCPclient.connected())
   {
     TCPclient.print(distance);
@@ -161,7 +215,7 @@ void Ultrasonic()
     {
       String response = TCPclient.readStringUntil('\n');
       response.trim();
-      
+
       Serial.print("Response from server: ");
       Serial.println(response);
     }
@@ -170,7 +224,6 @@ void Ultrasonic()
   {
     Serial.println("Not connected to server.");
   }
-  delay(1000);
 }
 
 void lightSensor()
@@ -195,14 +248,18 @@ void loop()
 {
   Blynk.run();
 
-  if (ultrasonicEnabled)
-    Ultrasonic();
-  if (soilMoistEnabled)
-    soilMoist();
-  if (waterPumpEnabled)
-    waterPump();
-  if (lightSensorEnabled)
-    lightSensor();
+  if ((millis() - previousMillis > 2000 || previousMillis == 0))
+  {
+    previousMillis = millis();
+    if (ultrasonicEnabled)
+      Ultrasonic();
+    if (soilMoistEnabled)
+      soilMoist();
+    if (waterPumpEnabled)
+      waterPump();
+    if (lightSensorEnabled)
+      lightSensor();
+  }
 }
 
 BLYNK_WRITE(V3) // Button for enable/disable ultrasonic
