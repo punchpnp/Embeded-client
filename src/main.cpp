@@ -55,6 +55,8 @@ bool soilMoistEnabled = true;
 bool humidtempEnabled = true;
 bool lightSensorEnabled = true;
 
+bool waterPumpSending = false;
+
 void setup()
 {
   Serial.begin(115200);
@@ -133,15 +135,16 @@ void soilMoist()
   Serial.print(soilMoistValue);
   Serial.println("%");
 
-  Blynk.virtualWrite(V1, soilMoistValue);
   handleFirebaseStoreData("Client/SoilMoist", String(soilMoistValue));
+  Blynk.virtualWrite(V4, soilMoistValue);
 
   if (TCPclient.connected())
   {
-    if (soilMoistValue < 50)
+    if (soilMoistValue < 50 && !waterPumpSending)
     {
       TCPclient.print("water");
       Serial.println("\"water\" sent to server.");
+      waterPumpSending = true;
     }
 
     if (TCPclient.available())
@@ -180,6 +183,7 @@ void waterPump()
     Serial.println("WaterPump Stop");
     digitalWrite(relayPin, LOW); // Turn off the water pump
     waterPumpEnabled = false;
+    waterPumpSending = false;
     waterPumpStartTime = 0;
     handleFirebaseStoreData("Client/WaterPump", "off");
   }
@@ -205,25 +209,6 @@ void Ultrasonic()
   Serial.println(" cm");
 
   handleFirebaseStoreData("Client/Ultrasonic", String(distance));
-
-  if (TCPclient.connected())
-  {
-    TCPclient.print(distance);
-    Serial.println("Distance sent to server.");
-
-    if (TCPclient.available())
-    {
-      String response = TCPclient.readStringUntil('\n');
-      response.trim();
-
-      Serial.print("Response from server: ");
-      Serial.println(response);
-    }
-  }
-  else
-  {
-    Serial.println("Not connected to server.");
-  }
 }
 
 void lightSensor()
