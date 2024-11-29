@@ -33,10 +33,10 @@ unsigned long waterPumpStartTime = 0;
 const unsigned long waterPumpDuration = 10000;
 
 // Function enable/disable flags
-bool ultrasonicEnabled = false;
-bool waterPumpEnabled = false;
-bool soilMoistEnabled = false;
-bool humidtempEnabled = false;
+bool ultrasonicEnabled = true;
+bool waterPumpEnabled = true;
+bool soilMoistEnabled = true;
+bool humidtempEnabled = true;
 bool lightSensorEnabled = true;
 
 void setup()
@@ -77,17 +77,17 @@ void setup()
 
 void soilMoist()
 {
-  soilMoistEnabled = (100.00 - ((analogRead(soilMoistPin) / 4095.00) * 100.00));
+  int soilMoistValue = (100.00 - ((analogRead(soilMoistPin) / 4095.00) * 100.00));
 
   Serial.print("Soil Moisture: ");
-  Serial.print(soilMoistEnabled);
+  Serial.print(soilMoistValue);
   Serial.println("%");
 
-  Blynk.virtualWrite(V1, soilMoistEnabled);
+  Blynk.virtualWrite(V1, soilMoistValue);
 
   if (TCPclient.connected())
   {
-    if (soilMoistEnabled < 50)
+    if (soilMoistValue < 50)
     {
       TCPclient.print("water");
       Serial.println("\"water\" sent to server.");
