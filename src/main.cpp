@@ -21,11 +21,11 @@
 #include <addons/RTDBHelper.h>
 
 // Wi-Fi credentials
-const char *ssid = "GAMEROOM_2.4G";
-const char *password = "66035r00mgam3";
+const char *ssid = "punchpnp";
+const char *password = "0955967996";
 
 // Server details
-const char *serverAddress = "172.20.10.3"; // CHANGE TO ESP32#2'S IP ADDRESS
+const char *serverAddress = "172.20.10.5"; // CHANGE TO ESP32#2'S IP ADDRESS
 const int serverPort = 80;
 
 bool FB_signupOK = false;
@@ -49,10 +49,10 @@ unsigned long waterPumpStartTime = 0;
 const unsigned long waterPumpDuration = 10000;
 
 // Function enable/disable flags
-bool ultrasonicEnabled = false;
-bool waterPumpEnabled = false;
-bool soilMoistEnabled = false;
-bool humidtempEnabled = false;
+bool ultrasonicEnabled = true;
+bool waterPumpEnabled = true;
+bool soilMoistEnabled = true;
+bool humidtempEnabled = true;
 bool lightSensorEnabled = true;
 
 void setup()
