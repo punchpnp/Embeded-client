@@ -21,8 +21,8 @@
 #include <addons/RTDBHelper.h>
 
 // Wi-Fi credentials
-const char *ssid = "punchpnp";
-const char *password = "0955967996";
+const char *ssid = "jpap";
+const char *password = "12341234";
 
 // Server details
 const char *serverAddress = "172.20.10.5"; // CHANGE TO ESP32#2'S IP ADDRESS
@@ -39,7 +39,7 @@ WiFiClient TCPclient;
 const int trigPin = 13; // Trigger pin
 const int echoPin = 12; // Echo pin
 const int soilMoistPin = 35;
-const int relayPin = 27;
+const int relayPin = 5;
 
 unsigned long previousMillis = 0;
 const unsigned long interval = 2000;
@@ -157,23 +157,15 @@ void soilMoist()
 
 void waterPump()
 {
-  if (waterPumpStartTime == 0) // Start the pump if it's not already started
-  {
-    Serial.println("WaterPump Start");
-    digitalWrite(relayPin, HIGH); // Turn on the water pump
-    waterPumpStartTime = millis();
-    // handleFirebaseStoreData("Client/WaterPump", "on");
-  }
+  Serial.println("WaterPump Start");
+  digitalWrite(relayPin, HIGH); // Turn on the water pump
+  waterPumpValue = true;
+  delay(4000);
 
-  if (millis() - waterPumpStartTime >= waterPumpDuration)
-  {
-    Serial.println("WaterPump Stop");
-    digitalWrite(relayPin, LOW); // Turn off the water pump
-    waterPumpEnabled = false;
-    waterPumpSending = false;
-    waterPumpStartTime = 0;
-    // handleFirebaseStoreData("Client/WaterPump", "off");
-  }
+  Serial.println("WaterPump Stop");
+  digitalWrite(relayPin, LOW); // Turn off the water pump
+  waterPumpSending = false;
+  waterPumpValue = false;
 }
 
 void Ultrasonic()
@@ -220,16 +212,17 @@ void collectAndStoreAllSensorData()
     Serial.println("Firebase: Failed to read from Soilmoisture or Ultrasonic sensor!");
     return;
   }
+
   FirebaseJson json;
   json.set("timestamp", String(millis())); // Add a timestamp
-  json.set("soilmoist", soilMoistValue);
+  json.set("soilMoist", soilMoistValue);
   json.set("waterPump", waterPumpValue);
-  json.set("Ultrasonic", distance);
+  json.set("ultrasonic", distance);
 
   String jsonData;
   json.toString(jsonData, true);
 
-  if (Firebase.RTDB.pushJSON(&fbdo, "Client/SensorData", json))
+  if (Firebase.RTDB.pushJSON(&fbdo, "Client/SensorData", &json))
   {
     Serial.println("Successfully stored combined sensor data:");
     Serial.println(jsonData);
@@ -244,19 +237,19 @@ void loop()
 {
   Blynk.run();
 
-  if ((millis() - previousMillis > 2000 || previousMillis == 0))
+  if ((millis() - previousMillis > 4000 || previousMillis == 0))
   {
     previousMillis = millis();
     if (ultrasonicEnabled)
       Ultrasonic();
     if (soilMoistEnabled)
       soilMoist();
-    if (waterPumpEnabled)
-      waterPump();
     if (lightSensorEnabled)
       lightSensor();
+    if (waterPumpEnabled)
+      waterPump();
 
-    collectAndStoreAllSensorData;
+    collectAndStoreAllSensorData();
   }
 }
 
