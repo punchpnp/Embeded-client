@@ -21,8 +21,8 @@
 #include <addons/RTDBHelper.h>
 
 // Wi-Fi credentials
-const char *ssid = "punchpnp";
-const char *password = "0955967996";
+const char *ssid = "jpap";
+const char *password = "12341234";
 
 // Server details
 const char *serverAddress = "172.20.10.5"; // CHANGE TO ESP32#2'S IP ADDRESS
@@ -39,7 +39,7 @@ WiFiClient TCPclient;
 const int trigPin = 13; // Trigger pin
 const int echoPin = 12; // Echo pin
 const int soilMoistPin = 35;
-const int relayPin = 27;
+const int relayPin = 5;
 
 unsigned long previousMillis = 0;
 const unsigned long interval = 2000;
@@ -56,6 +56,11 @@ bool humidtempEnabled = true;
 bool lightSensorEnabled = true;
 
 bool waterPumpSending = false;
+
+int soilMoistValue;
+bool waterPumpValue;
+long duration;
+float distance;
 
 void setup()
 {
@@ -110,32 +115,14 @@ void setup()
     Serial.println("Failed to connect to TCP server");
 }
 
-void handleFirebaseStoreData(String _path, String _data)
-{
-  if (Firebase.ready() && FB_signupOK)
-  {
-    if (Firebase.RTDB.setString(&fbdo, _path, _data))
-    {
-      Serial.println();
-      Serial.print(_data);
-      Serial.print(" - Successfully saved to: " + fbdo.dataPath());
-      Serial.println(" (" + fbdo.dataType() + ")");
-    }
-    else
-    {
-      Serial.println("FAILED: " + fbdo.errorReason());
-    }
-  }
-}
-
 void soilMoist()
 {
-  int soilMoistValue = (100.00 - ((analogRead(soilMoistPin) / 4095.00) * 100.00));
+  soilMoistValue = (100.00 - ((analogRead(soilMoistPin) / 4095.00) * 100.00));
   Serial.print("Soil Moisture: ");
   Serial.print(soilMoistValue);
   Serial.println("%");
 
-  handleFirebaseStoreData("Client/SoilMoist", String(soilMoistValue));
+  // handleFirebaseStoreData("Client/SoilMoist", String(soilMoistValue));
   Blynk.virtualWrite(V4, soilMoistValue);
 
   if (TCPclient.connected())
@@ -170,31 +157,20 @@ void soilMoist()
 
 void waterPump()
 {
-  if (waterPumpStartTime == 0) // Start the pump if it's not already started
-  {
-    Serial.println("WaterPump Start");
-    digitalWrite(relayPin, HIGH); // Turn on the water pump
-    waterPumpStartTime = millis();
-    handleFirebaseStoreData("Client/WaterPump", "on");
-  }
+  Serial.println("WaterPump Start");
+  digitalWrite(relayPin, HIGH); // Turn on the water pump
+  waterPumpValue = true;
+  delay(4000);
 
-  if (millis() - waterPumpStartTime >= waterPumpDuration)
-  {
-    Serial.println("WaterPump Stop");
-    digitalWrite(relayPin, LOW); // Turn off the water pump
-    waterPumpEnabled = false;
-    waterPumpSending = false;
-    waterPumpStartTime = 0;
-    handleFirebaseStoreData("Client/WaterPump", "off");
-  }
+  Serial.println("WaterPump Stop");
+  digitalWrite(relayPin, LOW); // Turn off the water pump
+  waterPumpSending = false;
+  waterPumpValue = false;
 }
 
 void Ultrasonic()
 {
   // Measure distance using ultrasonic sensor
-  long duration;
-  float distance;
-
   digitalWrite(trigPin, LOW);
   delayMicroseconds(2);
   digitalWrite(trigPin, HIGH);
@@ -208,7 +184,7 @@ void Ultrasonic()
   Serial.print(distance);
   Serial.println(" cm");
 
-  handleFirebaseStoreData("Client/Ultrasonic", String(distance));
+  // handleFirebaseStoreData("Client/Ultrasonic", String(distance));
 }
 
 void lightSensor()
@@ -229,21 +205,51 @@ void lightSensor()
   }
 }
 
+void collectAndStoreAllSensorData()
+{
+  if (isnan(soilMoistValue) && isnan(distance))
+  {
+    Serial.println("Firebase: Failed to read from Soilmoisture or Ultrasonic sensor!");
+    return;
+  }
+
+  FirebaseJson json;
+  json.set("timestamp", String(millis())); // Add a timestamp
+  json.set("soilMoist", soilMoistValue);
+  json.set("waterPump", waterPumpValue);
+  json.set("ultrasonic", distance);
+
+  String jsonData;
+  json.toString(jsonData, true);
+
+  if (Firebase.RTDB.pushJSON(&fbdo, "Client/SensorData", &json))
+  {
+    Serial.println("Successfully stored combined sensor data:");
+    Serial.println(jsonData);
+  }
+  else
+  {
+    Serial.println("Failed to store sensor data: " + fbdo.errorReason());
+  }
+}
+
 void loop()
 {
   Blynk.run();
 
-  if ((millis() - previousMillis > 2000 || previousMillis == 0))
+  if ((millis() - previousMillis > 4000 || previousMillis == 0))
   {
     previousMillis = millis();
     if (ultrasonicEnabled)
       Ultrasonic();
     if (soilMoistEnabled)
       soilMoist();
-    if (waterPumpEnabled)
-      waterPump();
     if (lightSensorEnabled)
       lightSensor();
+    if (waterPumpEnabled)
+      waterPump();
+
+    collectAndStoreAllSensorData();
   }
 }
 
