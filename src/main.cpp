@@ -57,6 +57,11 @@ bool lightSensorEnabled = true;
 
 bool waterPumpSending = false;
 
+int soilMoistValue;
+bool waterPumpValue;
+long duration;
+float distance;
+
 void setup()
 {
   Serial.begin(115200);
@@ -110,32 +115,14 @@ void setup()
     Serial.println("Failed to connect to TCP server");
 }
 
-void handleFirebaseStoreData(String _path, String _data)
-{
-  if (Firebase.ready() && FB_signupOK)
-  {
-    if (Firebase.RTDB.setString(&fbdo, _path, _data))
-    {
-      Serial.println();
-      Serial.print(_data);
-      Serial.print(" - Successfully saved to: " + fbdo.dataPath());
-      Serial.println(" (" + fbdo.dataType() + ")");
-    }
-    else
-    {
-      Serial.println("FAILED: " + fbdo.errorReason());
-    }
-  }
-}
-
 void soilMoist()
 {
-  int soilMoistValue = (100.00 - ((analogRead(soilMoistPin) / 4095.00) * 100.00));
+  soilMoistValue = (100.00 - ((analogRead(soilMoistPin) / 4095.00) * 100.00));
   Serial.print("Soil Moisture: ");
   Serial.print(soilMoistValue);
   Serial.println("%");
 
-  handleFirebaseStoreData("Client/SoilMoist", String(soilMoistValue));
+  // handleFirebaseStoreData("Client/SoilMoist", String(soilMoistValue));
   Blynk.virtualWrite(V4, soilMoistValue);
 
   if (TCPclient.connected())
@@ -175,7 +162,7 @@ void waterPump()
     Serial.println("WaterPump Start");
     digitalWrite(relayPin, HIGH); // Turn on the water pump
     waterPumpStartTime = millis();
-    handleFirebaseStoreData("Client/WaterPump", "on");
+    // handleFirebaseStoreData("Client/WaterPump", "on");
   }
 
   if (millis() - waterPumpStartTime >= waterPumpDuration)
@@ -185,16 +172,13 @@ void waterPump()
     waterPumpEnabled = false;
     waterPumpSending = false;
     waterPumpStartTime = 0;
-    handleFirebaseStoreData("Client/WaterPump", "off");
+    // handleFirebaseStoreData("Client/WaterPump", "off");
   }
 }
 
 void Ultrasonic()
 {
   // Measure distance using ultrasonic sensor
-  long duration;
-  float distance;
-
   digitalWrite(trigPin, LOW);
   delayMicroseconds(2);
   digitalWrite(trigPin, HIGH);
@@ -208,7 +192,7 @@ void Ultrasonic()
   Serial.print(distance);
   Serial.println(" cm");
 
-  handleFirebaseStoreData("Client/Ultrasonic", String(distance));
+  // handleFirebaseStoreData("Client/Ultrasonic", String(distance));
 }
 
 void lightSensor()
@@ -229,6 +213,28 @@ void lightSensor()
   }
 }
 
+void collectAndStoreAllSensorData()
+{
+  FirebaseJson json;
+  json.set("timestamp", String(millis())); // Add a timestamp
+  json.set("soilmoist", soilMoistValue);
+  json.set("waterPump", waterPumpValue);
+  json.set("Ultrasonic", distance);
+
+  String jsonData;
+  json.toString(jsonData, true);
+
+  if (Firebase.RTDB.pushJSON(&fbdo, "Client/SensorData", json))
+  {
+    Serial.println("Successfully stored combined sensor data:");
+    Serial.println(jsonData);
+  }
+  else
+  {
+    Serial.println("Failed to store sensor data: " + fbdo.errorReason());
+  }
+}
+
 void loop()
 {
   Blynk.run();
@@ -244,6 +250,8 @@ void loop()
       waterPump();
     if (lightSensorEnabled)
       lightSensor();
+
+    collectAndStoreAllSensorData;
   }
 }
 
