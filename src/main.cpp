@@ -215,6 +215,11 @@ void lightSensor()
 
 void collectAndStoreAllSensorData()
 {
+  if (isnan(soilMoistValue) && isnan(distance))
+  {
+    Serial.println("Firebase: Failed to read from Soilmoisture or Ultrasonic sensor!");
+    return;
+  }
   FirebaseJson json;
   json.set("timestamp", String(millis())); // Add a timestamp
   json.set("soilmoist", soilMoistValue);
