@@ -25,7 +25,7 @@ const char *ssid = "jpap";
 const char *password = "12341234";
 
 // Server details
-const char *serverAddress = "172.20.10.5"; // CHANGE TO ESP32#2'S IP ADDRESS
+const char *serverAddress = "172.20.10.6"; // CHANGE TO ESP32#2'S IP ADDRESS
 const int serverPort = 80;
 
 bool FB_signupOK = false;
@@ -39,7 +39,8 @@ WiFiClient TCPclient;
 const int trigPin = 13; // Trigger pin
 const int echoPin = 12; // Echo pin
 const int soilMoistPin = 35;
-const int relayPin = 5;
+
+const int relayPin = 15;
 
 unsigned long previousMillis = 0;
 const unsigned long interval = 2000;
@@ -50,12 +51,14 @@ const unsigned long waterPumpDuration = 10000;
 
 // Function enable/disable flags
 bool ultrasonicEnabled = true;
-bool waterPumpEnabled = true;
+bool waterPumpEnabled = false;
 bool soilMoistEnabled = true;
 bool humidtempEnabled = true;
 bool lightSensorEnabled = true;
 
 bool waterPumpSending = false;
+unsigned long lastPumpTime = 0;
+const unsigned long pumpInterval = 5000; // 5 seconds interval
 
 int soilMoistValue;
 bool waterPumpValue;
@@ -157,15 +160,22 @@ void soilMoist()
 
 void waterPump()
 {
-  Serial.println("WaterPump Start");
-  digitalWrite(relayPin, HIGH); // Turn on the water pump
-  waterPumpValue = true;
-  delay(4000);
+  unsigned long currentMillis = millis();
+  if (currentMillis - lastPumpTime >= pumpInterval)
+  {
+    unsigned long currentMillis = millis();
+    Serial.println("WaterPump Start");
+    digitalWrite(relayPin, HIGH); // Turn on the water pump
+    waterPumpValue = true;
+    delay(1000);
 
-  Serial.println("WaterPump Stop");
-  digitalWrite(relayPin, LOW); // Turn off the water pump
-  waterPumpSending = false;
-  waterPumpValue = false;
+    Serial.println("WaterPump Stop");
+    digitalWrite(relayPin, LOW); // Turn off the water pump
+    waterPumpSending = false;
+    waterPumpValue = false;
+    waterPumpEnabled = false;
+    lastPumpTime = currentMillis; // Update the last pump time
+  }
 }
 
 void Ultrasonic()
