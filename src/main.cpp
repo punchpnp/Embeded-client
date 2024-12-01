@@ -21,11 +21,11 @@
 #include <addons/RTDBHelper.h>
 
 // Wi-Fi credentials
-const char *ssid = "jpap";
-const char *password = "12341234";
+const char *ssid = "punchpnp";
+const char *password = "0955967996";
 
 // Server details
-const char *serverAddress = "172.20.10.6"; // CHANGE TO ESP32#2'S IP ADDRESS
+const char *serverAddress = "172.20.10.3"; // CHANGE TO ESP32#2'S IP ADDRESS
 const int serverPort = 80;
 
 bool FB_signupOK = false;
