@@ -21,11 +21,11 @@
 #include <addons/RTDBHelper.h>
 
 // Wi-Fi credentials
-const char *ssid = "punchpnp";
-const char *password = "0955967996";
+const char *ssid = "JPpro";
+const char *password = "12341234";
 
 // Server details
-const char *serverAddress = "172.20.10.3"; // CHANGE TO ESP32#2'S IP ADDRESS
+const char *serverAddress = "172.20.10.5"; // CHANGE TO ESP32#2'S IP ADDRESS
 const int serverPort = 80;
 
 bool FB_signupOK = false;
@@ -40,23 +40,17 @@ const int trigPin = 13; // Trigger pin
 const int echoPin = 12; // Echo pin
 const int soilMoistPin = 35;
 
-const int relayPin = 15;
+const int relayPin = 5;
 
 unsigned long previousMillis = 0;
 const unsigned long interval = 2000;
 
-// Water pump variables
-unsigned long waterPumpStartTime = 0;
-const unsigned long waterPumpDuration = 10000;
-
 // Function enable/disable flags
 bool ultrasonicEnabled = true;
-bool waterPumpEnabled = false;
 bool soilMoistEnabled = true;
 bool humidtempEnabled = true;
 bool lightSensorEnabled = true;
 
-bool waterPumpSending = false;
 unsigned long lastPumpTime = 0;
 const unsigned long pumpInterval = 5000; // 5 seconds interval
 
@@ -118,46 +112,6 @@ void setup()
     Serial.println("Failed to connect to TCP server");
 }
 
-void soilMoist()
-{
-  soilMoistValue = (100.00 - ((analogRead(soilMoistPin) / 4095.00) * 100.00));
-  Serial.print("Soil Moisture: ");
-  Serial.print(soilMoistValue);
-  Serial.println("%");
-
-  // handleFirebaseStoreData("Client/SoilMoist", String(soilMoistValue));
-  Blynk.virtualWrite(V4, soilMoistValue);
-
-  if (TCPclient.connected())
-  {
-    if (soilMoistValue < 50 && !waterPumpSending)
-    {
-      TCPclient.print("water");
-      Serial.println("\"water\" sent to server.");
-      waterPumpSending = true;
-    }
-
-    if (TCPclient.available())
-    {
-      String response = TCPclient.readStringUntil('\n');
-      Serial.println(response);
-
-      response.trim();
-      if (response == "openPump")
-      {
-        Serial.print("Response from server: ");
-        Serial.println(response);
-        Serial.println("\n");
-        waterPumpEnabled = true;
-      }
-    }
-  }
-  else
-  {
-    Serial.println("Not connected to server.");
-  }
-}
-
 void waterPump()
 {
   unsigned long currentMillis = millis();
@@ -167,14 +121,46 @@ void waterPump()
     Serial.println("WaterPump Start");
     digitalWrite(relayPin, HIGH); // Turn on the water pump
     waterPumpValue = true;
-    delay(1000);
+    delay(3000);
 
     Serial.println("WaterPump Stop");
     digitalWrite(relayPin, LOW); // Turn off the water pump
-    waterPumpSending = false;
     waterPumpValue = false;
-    waterPumpEnabled = false;
     lastPumpTime = currentMillis; // Update the last pump time
+  }
+}
+
+void soilMoist()
+{
+  soilMoistValue = (100.00 - ((analogRead(soilMoistPin) / 4095.00) * 100.00));
+
+  Blynk.virtualWrite(V4, soilMoistValue);
+
+  if (TCPclient.connected())
+  {
+    if (soilMoistValue < 50)
+    {
+      TCPclient.print("water");
+      Serial.println("\"water\" sent to server.");
+    }
+
+    if (TCPclient.available())
+    {
+      String response = TCPclient.readStringUntil('\n');
+      Serial.println(response);
+      response.trim();
+      if (response == "openPump")
+      {
+        waterPump();
+        Serial.print("Response from server: ");
+        Serial.println(response);
+        Serial.println("\n");
+      }
+    }
+  }
+  else
+  {
+    Serial.println("Not connected to server.");
   }
 }
 
@@ -189,12 +175,6 @@ void Ultrasonic()
 
   duration = pulseIn(echoPin, HIGH);
   distance = (duration * 0.0343) / 2;
-
-  Serial.print("Distance: ");
-  Serial.print(distance);
-  Serial.println(" cm");
-
-  // handleFirebaseStoreData("Client/Ultrasonic", String(distance));
 }
 
 void lightSensor()
@@ -256,8 +236,6 @@ void loop()
       soilMoist();
     if (lightSensorEnabled)
       lightSensor();
-    if (waterPumpEnabled)
-      waterPump();
 
     collectAndStoreAllSensorData();
   }
